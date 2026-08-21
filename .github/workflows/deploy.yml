@@ -1,0 +1,62 @@
+name: Hämta data och publicera
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 04:15 UTC varje natt. WTT publicerar ny ranking på måndagar, men ett
+    # dagligt jobb fångar även ändrade anmälningslistor och poängtabeller.
+    - cron: "15 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# En publicering i taget. Köade körningar avbryts inte — den sista vinner ändå.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Hämta rankingdata från WTT
+        # Nycklarna är valfria: hämtaren läser dem ur WTT:s publika bundle om de
+        # inte är satta, vilket gör att jobbet överlever att WTT roterar dem.
+        env:
+          WTT_RANKING_KEY: ${{ secrets.WTT_RANKING_KEY }}
+          WTT_TTU_KEY: ${{ secrets.WTT_TTU_KEY }}
+        run: npm run fetch
+
+      - name: Verifiera motorn mot officiella poäng
+        # Stoppar publicering om vår modell och WTT:s siffror glider isär.
+        run: npm test
+
+      # Vite kopierar public/ till dist/ som en del av bygget
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

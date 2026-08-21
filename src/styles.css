@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Bordsgrön bas med varm accent — sportig utan att skrika */
+  --color-felt-50:  #f2f8f5;
+  --color-felt-100: #dcece3;
+  --color-felt-200: #b9d9c8;
+  --color-felt-400: #4d9b74;
+  --color-felt-600: #1f6f4a;
+  --color-felt-700: #17563a;
+  --color-felt-900: #0b2b1d;
+
+  --color-ink-50:  #f6f7f8;
+  --color-ink-100: #eaecef;
+  --color-ink-200: #d4d8de;
+  --color-ink-300: #b0b7c1;
+  --color-ink-500: #6b7280;
+  --color-ink-700: #343a45;
+  --color-ink-800: #21262e;
+  --color-ink-900: #14181e;
+  --color-ink-950: #0c0f13;
+
+  --color-up: #16a34a;
+  --color-down: #dc2626;
+  --color-flame: #ea580c;
+}
+
+:root { color-scheme: light dark; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  @apply bg-ink-50 text-ink-900 antialiased;
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  body { @apply bg-ink-950 text-ink-100; }
+}
+
+/* Siffror ska ligga i pelare i tabellerna */
+.tnum { font-variant-numeric: tabular-nums; }
+
+@keyframes flash {
+  from { background-color: color-mix(in oklab, var(--color-felt-400) 35%, transparent); }
+  to   { background-color: transparent; }
+}
+.flash { animation: flash 700ms ease-out; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { @apply bg-ink-300 rounded-full; }
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb { @apply bg-ink-700; }
+}
