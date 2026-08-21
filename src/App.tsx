@@ -125,7 +125,7 @@ function Workspace({
 
       <Highlights projection={projection} isProjecting={isProjecting} t={t} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
         <Card className="overflow-hidden">
           <CardHeader
             title={isProjecting ? t("projectedRanking") : t("currentRanking")}
