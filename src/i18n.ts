@@ -33,7 +33,9 @@ const sv = {
   chooseTournament: "Välj turnering",
   noTournamentSelected: "Välj en turnering i tidslinjen för att börja räkna.",
   entries: "anmälda",
-  sortedByRanking: "sorterade efter aktuell ranking",
+  sortedByRanking: "sorterade efter världsranking, inte fältets seedning",
+  worldRank: "VR",
+  worldRankFull: "Världsranking — fältets ordning, inte en omräknad seedningssiffra",
   scenarioHint:
     "Sätt ett utfall för de spelare du vill testa. Rankingen till vänster visar vad som händer om det blir verklighet.",
   weekState: "Läget",
@@ -131,7 +133,9 @@ const en: Dict = {
   chooseTournament: "Choose a tournament",
   noTournamentSelected: "Pick a tournament from the timeline to start.",
   entries: "entries",
-  sortedByRanking: "sorted by current ranking",
+  sortedByRanking: "sorted by world ranking, not the field's seeding",
+  worldRank: "WR",
+  worldRankFull: "World ranking — the field's order, not a recalculated seed number",
   scenarioHint:
     "Set an outcome for the players you want to test. The ranking on the left shows what happens if it becomes reality.",
   weekState: "State as of",

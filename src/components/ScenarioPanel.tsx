@@ -97,7 +97,9 @@ export function ScenarioPanel({
         <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur dark:bg-ink-900/95">
             <tr className="border-b border-ink-100 text-left text-[11px] uppercase tracking-wide text-ink-500 dark:border-ink-800">
-              <th className="w-8 px-2 py-2 text-right font-medium">#</th>
+              <th className="w-8 px-2 py-2 text-right font-medium" title={t("worldRankFull")}>
+                {t("worldRank")}
+              </th>
               <th className="px-2 py-2 font-medium">{t("player")}</th>
               <th className="w-20 px-1 py-2 text-right font-medium">{t("defends")}</th>
               <th className="w-16 px-1 py-2 text-right font-medium">{t("atRisk")}</th>
@@ -111,7 +113,9 @@ export function ScenarioPanel({
               const picked = picks[player.id] ?? "";
               return (
                 <tr key={player.id} className="border-b border-ink-100/70 last:border-0 hover:bg-ink-50 dark:border-ink-800/70 dark:hover:bg-ink-800/40">
-                  <td className="px-2 py-1.5 text-right text-xs text-ink-500 tnum">{player.rank}</td>
+                  <td className="px-2 py-1.5 text-right text-xs text-ink-500 tnum" title={t("worldRankFull")}>
+                    {player.rank}
+                  </td>
                   <td className="max-w-0 px-2 py-1.5">
                     <div className="flex items-baseline gap-1.5">
                       <span className="truncate font-medium" title={player.name}>{player.name}</span>
