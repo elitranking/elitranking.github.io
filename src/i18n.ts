@@ -33,7 +33,10 @@ const sv = {
   chooseTournament: "Välj turnering",
   noTournamentSelected: "Välj en turnering i tidslinjen för att börja räkna.",
   entries: "anmälda",
-  entryListPending: "Anmälningslistan är inte publicerad än — visar de högst rankade spelarna.",
+  sortedByRanking: "sorterade efter aktuell ranking",
+  scenarioHint:
+    "Sätt ett utfall för de spelare du vill testa. Rankingen till vänster visar vad som händer om det blir verklighet.",
+  entryListPending: "Anmälningslistan är inte publicerad än — visar de högst rankade spelarna istället.",
   estimatedPoints: "Poängtabellen är härledd från tidigare upplagor och kan justeras av WTT.",
 
   outcome: "Utfall",
@@ -124,7 +127,10 @@ const en: Dict = {
   chooseTournament: "Choose a tournament",
   noTournamentSelected: "Pick a tournament from the timeline to start.",
   entries: "entries",
-  entryListPending: "The entry list isn't published yet — showing the highest ranked players.",
+  sortedByRanking: "sorted by current ranking",
+  scenarioHint:
+    "Set an outcome for the players you want to test. The ranking on the left shows what happens if it becomes reality.",
+  entryListPending: "The entry list isn't published yet — showing the highest ranked players instead.",
   estimatedPoints: "The points table is derived from previous editions and may be adjusted by WTT.",
 
   outcome: "Result",

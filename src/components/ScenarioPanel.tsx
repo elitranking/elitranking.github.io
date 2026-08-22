@@ -72,6 +72,8 @@ export function ScenarioPanel({
         />
         <span className="text-xs text-ink-500 tnum">
           {candidates.length} {event.entries ? t("entries") : t("players")}
+          <span className="mx-1 text-ink-300">·</span>
+          {t("sortedByRanking")}
         </span>
         {chosen > 0 && (
           <button onClick={onClear} className="rounded-md px-2 py-1 text-xs font-medium text-ink-500 hover:bg-ink-100 hover:text-down dark:hover:bg-ink-800">
@@ -79,6 +81,10 @@ export function ScenarioPanel({
           </button>
         )}
       </div>
+
+      <p className="border-b border-ink-100 bg-felt-50/50 px-4 py-2 text-xs text-ink-700 dark:border-ink-800 dark:bg-felt-900/15 dark:text-ink-200">
+        {t("scenarioHint")}
+      </p>
 
       {(!event.entries || event.pointsAreEstimated) && (
         <div className="space-y-1 border-b border-ink-100 bg-amber-50/60 px-4 py-2 text-xs text-amber-800 dark:border-ink-800 dark:bg-amber-950/30 dark:text-amber-200">
