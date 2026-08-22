@@ -78,6 +78,10 @@ function Workspace({
 
   const target: Week = targetEvent?.landsIn ?? now;
   const isProjecting = compareWeeks(target, now) > 0;
+  // Att bara klicka på en turnering flyttar målveckan och kan ändra poäng —
+  // inte för att någon spelat, utan för att resultat hinner gå ur under tiden.
+  // Den skillnaden måste synas, annars ser tidens gång ut som ett scenario.
+  const hasPicks = picks.length > 0;
 
   const projection = useMemo(
     () => project({ players, events, picks, now, target }),
@@ -123,7 +127,11 @@ function Workspace({
         />
       </section>
 
-      <Highlights projection={projection} isProjecting={isProjecting} t={t} />
+      {hasPicks ? (
+        <Highlights projection={projection} isProjecting={isProjecting} t={t} />
+      ) : (
+        isProjecting && <BaselineNotice t={t} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
         <Card className="overflow-hidden">
@@ -131,7 +139,9 @@ function Workspace({
             title={isProjecting ? t("projectedRanking") : t("currentRanking")}
             subtitle={
               isProjecting && targetEvent
-                ? `${t("afterTournament")} ${targetEvent.name} · ${formatWeek(target)}`
+                ? hasPicks
+                  ? `${t("afterTournament")} ${targetEvent.name} · ${formatWeek(target)}`
+                  : `${t("weekState")} ${formatWeek(target)} · ${t("noPicksYet")}`
                 : `${t("updated")} ${formatDate(data.meta.publishDate, state.lang)} · ${t("week")} ${now.week}`
             }
             action={
@@ -266,6 +276,22 @@ function Header({ state, dispatch, t }: any) {
         </button>
       </div>
     </header>
+  );
+}
+
+/**
+ * Visas i stället för Highlights innan något utfall är valt.
+ *
+ * Utan den här texten ser rena åldringseffekter — poäng som hinner gå ut till
+ * målveckan — ut som om de vore ett resultat av turneringen. Klättrar- och
+ * tappar-listorna göms samtidigt, för de listar annars brus från exakt samma
+ * åldringseffekt och antyder att lottningen redan är avgjord.
+ */
+function BaselineNotice({ t }: { t: any }) {
+  return (
+    <div className="mb-4 rounded-xl border border-felt-200 bg-felt-50/60 px-4 py-3 text-sm text-ink-700 dark:border-felt-900/50 dark:bg-felt-900/15 dark:text-ink-200">
+      {t("baselineNotice")}
+    </div>
   );
 }
 

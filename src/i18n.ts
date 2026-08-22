@@ -36,6 +36,10 @@ const sv = {
   sortedByRanking: "sorterade efter aktuell ranking",
   scenarioHint:
     "Sätt ett utfall för de spelare du vill testa. Rankingen till vänster visar vad som händer om det blir verklighet.",
+  weekState: "Läget",
+  noPicksYet: "inga utfall valda",
+  baselineNotice:
+    "Inget utfall är valt än. Det här visar bara hur poängen ser ut vid det här datumet, med resultat som redan gått ut borträknade — ingen lottning eller seedning är inräknad. Sätt ett utfall i panelen till höger för att se vad turneringen faktiskt skulle betyda.",
   entryListPending: "Anmälningslistan är inte publicerad än — visar de högst rankade spelarna istället.",
   estimatedPoints: "Poängtabellen är härledd från tidigare upplagor och kan justeras av WTT.",
 
@@ -130,6 +134,10 @@ const en: Dict = {
   sortedByRanking: "sorted by current ranking",
   scenarioHint:
     "Set an outcome for the players you want to test. The ranking on the left shows what happens if it becomes reality.",
+  weekState: "State as of",
+  noPicksYet: "no outcomes chosen",
+  baselineNotice:
+    "No outcome has been set yet. This just shows the points as they stand on this date, with anything already expired excluded — no draw or seeding is factored in. Set an outcome in the panel on the right to see what the tournament would actually mean.",
   entryListPending: "The entry list isn't published yet — showing the highest ranked players instead.",
   estimatedPoints: "The points table is derived from previous editions and may be adjusted by WTT.",
 
