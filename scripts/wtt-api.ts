@@ -305,3 +305,61 @@ export async function fetchEventPoints(
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Matchdata (lottning och matchkort)
+// ---------------------------------------------------------------------------
+
+/**
+ * Som getJson, men "finns inte" är ett giltigt svar: HTTP 204 och 404 ger null.
+ *
+ * Allt annat som inte är ett riktigt svar — 5xx, strypning, en tom 200-kropp —
+ * provas om och kastar till sist. WTT:s gateway tappar ibland enstaka anrop, och
+ * ett tyst null skulle få en gren att försvinna från sajten tills nästa körning.
+ */
+async function getJsonOptional<T>(url: string): Promise<T | null> {
+  let lastError = "";
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const res = await fetch(url, { headers: BROWSER_HEADERS });
+      if (res.status === 204 || res.status === 404) return null;
+      if (res.ok) {
+        const text = await res.text();
+        if (text.trim()) return JSON.parse(text) as T;
+        lastError = "tom kropp";
+      } else {
+        lastError = `${res.status} ${res.statusText}`;
+      }
+    } catch (err) {
+      lastError = (err as Error).message;
+    }
+    await sleep(attempt * 1500);
+  }
+  throw new Error(`${lastError} för ${url}`);
+}
+
+/**
+ * Hela lottningen för en gren, t.ex. "MSINGLES", "WSINGLES", "XDOUBLES".
+ * Null för grenar som inte finns i turneringen (eller lagtävlingar, som har annan form).
+ */
+export async function fetchBracket(eventId: number, subEventCode: string): Promise<unknown | null> {
+  const cfg = await resolveConfig();
+  return getJsonOptional(`${cfg.liveApi}cms/GetBrackets/${eventId}/TTE${subEventCode}`);
+}
+
+/**
+ * Färdigspelade matchkort för en turnering. Med `documentCode` hämtas ett enskilt
+ * kort, vilket är hur WTT:s egen sajt får tag på pågående matcher.
+ */
+export async function fetchMatchCards(eventId: number, documentCode?: string): Promise<unknown[]> {
+  const cfg = await resolveConfig();
+  const params = new URLSearchParams({ EventId: String(eventId), include_match_card: "true", take: "5000" });
+  if (documentCode) {
+    params.set("DocumentCode", documentCode);
+    params.set("take", "1");
+  }
+  const rows = await getJsonOptional<Array<{ match_card?: unknown }>>(
+    `${cfg.liveApi}cms/GetOfficialResult?${params}`,
+  );
+  return (rows ?? []).map((r) => r.match_card).filter(Boolean);
+}

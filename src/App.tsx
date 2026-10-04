@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { loadData } from "./data";
+import { loadData, loadSwedes } from "./data";
 import { project, type ProjectedPlayer } from "./engine/ranking";
 import type { DataBundle, ScenarioPick, SubEvent, TournamentEvent, Week } from "./engine/types";
 import { compareWeeks, formatWeek } from "./engine/week";
 import { formatDate, makeTranslate, type Lang } from "./i18n";
+import type { SwedesData } from "./swedes/types";
 import { decodeScenario, encodeScenario, initialState, reducer } from "./state";
 import { RankingTable } from "./components/RankingTable";
+import { SwedesCard } from "./components/SwedesCard";
 import { ScenarioPanel } from "./components/ScenarioPanel";
 import { Timeline } from "./components/Timeline";
 import { Card, CardHeader, Toggle } from "./components/ui";
@@ -14,6 +16,7 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [data, setData] = useState<DataBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const swedes = useSwedes();
   const t = makeTranslate(state.lang);
 
   // Läs scenariot ur länken en gång vid start
@@ -41,13 +44,38 @@ export default function App() {
   if (error) return <Fallback message={t("loadError")} detail={error} action={t("retry")} />;
   if (!data) return <Fallback message={t("loading")} />;
 
-  return <Workspace data={data} state={state} dispatch={dispatch} t={t} />;
+  return <Workspace data={data} swedes={swedes} state={state} dispatch={dispatch} t={t} />;
+}
+
+/**
+ * Svenskarnas matcher, med omhämtning så att en öppen flik följer turneringen.
+ * Hoppar över omhämtning medan fliken är dold.
+ */
+function useSwedes(): SwedesData | null {
+  const [swedes, setSwedes] = useState<SwedesData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      if (document.hidden) return;
+      loadSwedes().then((d) => !cancelled && d && setSwedes(d));
+    };
+    refresh();
+    const timer = setInterval(refresh, 3 * 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+  return swedes;
 }
 
 function Workspace({
-  data, state, dispatch, t,
+  data, swedes, state, dispatch, t,
 }: {
   data: DataBundle;
+  swedes: SwedesData | null;
   state: ReturnType<typeof reducer>;
   dispatch: React.Dispatch<Parameters<typeof reducer>[1]>;
   t: ReturnType<typeof makeTranslate>;
@@ -114,6 +142,32 @@ function Workspace({
     <div className="mx-auto max-w-7xl px-4 pb-16">
       <Header state={state} dispatch={dispatch} t={t} />
 
+      {swedes?.events.map((ev) => {
+        const inScenario = data.events.some((e) => e.id === ev.id);
+        return (
+          <SwedesCard
+            key={ev.id}
+            event={ev}
+            generatedAt={swedes.generatedAt}
+            lang={state.lang}
+            t={t}
+            action={
+              inScenario ? (
+                <button
+                  onClick={() => {
+                    if (state.focusedEvent !== ev.id) dispatch({ type: "FOCUS_EVENT", eventId: ev.id });
+                    document.getElementById("scenario")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="shrink-0 rounded-md bg-felt-50 px-2.5 py-1 text-xs font-medium text-felt-700 hover:bg-felt-100 dark:bg-felt-900/40 dark:text-felt-100"
+                >
+                  {t("swedesOpenScenario")}
+                </button>
+              ) : undefined
+            }
+          />
+        );
+      })}
+
       <section className="mb-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">{t("tournaments")}</h2>
         <Timeline
@@ -176,7 +230,7 @@ function Workspace({
           </div>
         </Card>
 
-        <div className="space-y-4">
+        <div id="scenario" className="scroll-mt-4 space-y-4">
           <Card className="overflow-hidden">
             <CardHeader
               title={focused ? focused.name : t("scenarioBuilder")}

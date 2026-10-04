@@ -104,6 +104,41 @@ const sv = {
   unchanged: "Oförändrad topp",
   pointsExpiring: "Poäng som går ut",
   next12Weeks: "kommande 12 veckorna",
+
+  swedesTitle: "Svenskarna i",
+  swedesDate: "Datum",
+  swedesTime: "Tid",
+  swedesPlayer: "Svensk spelare/par",
+  swedesOpponent: "Motståndare",
+  swedesEvent: "Gren",
+  swedesResult: "Resultat",
+  swedesTimeNote: "Alla tider är svensk tid.",
+  swedesNotSet: "Ej fastställd",
+  swedesNotSetHint: "Tid och/eller motståndare är inte klara än. Matchen spelas om svensken vinner sin föregående match.",
+  swedesLive: "Pågår",
+  swedesUpcoming: "Kommande",
+  swedesWinnerOf: "Vinnare av",
+  swedesLocalTime: "lokal tid",
+  swedesOpenScenario: "Räkna på rankingen",
+  swedesFootnote: "Sidan hämtar nya matchdata från WTT med några minuters mellanrum under turneringsdagar.",
+  swedesGames: "game",
+  swedesWon: "Vinst",
+  swedesLost: "Förlust",
+
+  subMS: "Herrsingel",
+  subWS: "Damsingel",
+  subMD: "Herrdubbel",
+  subWD: "Damdubbel",
+  subXD: "Mixed",
+
+  mrR128: "Sextiofjärdedelsfinal",
+  mrR64: "Trettiotvådelsfinal",
+  mrR32: "Sextondelsfinal",
+  mrR16: "Åttondelsfinal",
+  mrQF: "Kvartsfinal",
+  mrSF: "Semifinal",
+  mrF: "Final",
+  mrQual: "Kval",
 } as const;
 
 type Dict = Record<keyof typeof sv, string>;
@@ -204,6 +239,41 @@ const en: Dict = {
   unchanged: "Top unchanged",
   pointsExpiring: "Points expiring",
   next12Weeks: "next 12 weeks",
+
+  swedesTitle: "Swedes at",
+  swedesDate: "Date",
+  swedesTime: "Time",
+  swedesPlayer: "Swedish player/pair",
+  swedesOpponent: "Opponent",
+  swedesEvent: "Event",
+  swedesResult: "Result",
+  swedesTimeNote: "All times are Swedish time.",
+  swedesNotSet: "TBD",
+  swedesNotSetHint: "Time and/or opponent are not set yet. The match is played if the Swede wins their previous match.",
+  swedesLive: "Live",
+  swedesUpcoming: "Upcoming",
+  swedesWinnerOf: "Winner of",
+  swedesLocalTime: "local time",
+  swedesOpenScenario: "Do the ranking maths",
+  swedesFootnote: "The page picks up new match data from WTT every few minutes on tournament days.",
+  swedesGames: "game",
+  swedesWon: "Win",
+  swedesLost: "Loss",
+
+  subMS: "Men's singles",
+  subWS: "Women's singles",
+  subMD: "Men's doubles",
+  subWD: "Women's doubles",
+  subXD: "Mixed doubles",
+
+  mrR128: "Round of 128",
+  mrR64: "Round of 64",
+  mrR32: "Round of 32",
+  mrR16: "Round of 16",
+  mrQF: "Quarterfinal",
+  mrSF: "Semifinal",
+  mrF: "Final",
+  mrQual: "Qualifying",
 };
 
 export const DICTIONARIES: Record<Lang, Dict> = { sv, en };
@@ -231,4 +301,12 @@ export function formatDate(iso: string, lang: Lang): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString(lang === "sv" ? "sv-SE" : "en-GB", {
     day: "numeric", month: "short", timeZone: "UTC",
   });
+}
+
+/** Matchrunda → ord. Skiljer sig från positionLabel: "R64" som match är trettiotvådelsfinal, som placering "trettiotvådel". */
+export function matchRoundLabel(round: string, t: Translate): string {
+  const key = ({
+    R128: "mrR128", R64: "mrR64", R32: "mrR32", R16: "mrR16", QF: "mrQF", SF: "mrSF", F: "mrF", QR: "mrQual",
+  } as Record<string, TranslationKey>)[round];
+  return key ? t(key) : round;
 }

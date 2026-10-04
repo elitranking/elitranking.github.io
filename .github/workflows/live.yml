@@ -1,0 +1,96 @@
+name: Uppdatera svenskarnas matcher
+
+on:
+  schedule:
+    # Var tionde minut. GitHub kör schemalagda jobb på best-effort-basis, så i
+    # praktiken blir det ofta 10–20 minuter. Jobbet är billigt när inget händer:
+    # det publicerar bara om något faktiskt ändrats.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Delar kö med nattjobbet så att två publiceringar aldrig kör samtidigt.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    env:
+      SITE: https://${{ github.repository_owner }}.github.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Hämta svenskarnas matcher från WTT
+        env:
+          WTT_RANKING_KEY: ${{ secrets.WTT_RANKING_KEY }}
+          WTT_TTU_KEY: ${{ secrets.WTT_TTU_KEY }}
+        run: npm run fetch:swedes -- --out "$RUNNER_TEMP/swedes.json"
+
+      - name: Har något ändrats sedan den publicerade versionen?
+        id: diff
+        run: |
+          curl -sf "$SITE/data/swedes.json?t=$(date +%s)" -o "$RUNNER_TEMP/published.json" || echo '{}' > "$RUNNER_TEMP/published.json"
+          # Tidsstämpeln ändras vid varje körning och räknas inte som en ändring.
+          strip() { jq -S 'del(.generatedAt)' "$1" 2>/dev/null || echo invalid; }
+          if [ "$(strip "$RUNNER_TEMP/swedes.json")" = "$(strip "$RUNNER_TEMP/published.json")" ]; then
+            echo "Oförändrat — publicerar inte."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Återanvänd rankingdatan från den publicerade sajten
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          WTT_RANKING_KEY: ${{ secrets.WTT_RANKING_KEY }}
+          WTT_TTU_KEY: ${{ secrets.WTT_TTU_KEY }}
+        run: |
+          # Rankingen ändras bara en gång i veckan; att hämta om 500 poängkonton
+          # var tionde minut vore både slött och ovänligt mot WTT.
+          mkdir -p public/data
+          ok=true
+          for f in meta events ranking-MS ranking-WS; do
+            curl -sf "$SITE/data/$f.json" -o "public/data/$f.json" || ok=false
+          done
+          if [ "$ok" != true ]; then
+            echo "Kunde inte hämta publicerad data — hämtar allt från WTT."
+            npm run fetch
+          fi
+
+      - name: Bygg
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          cp "$RUNNER_TEMP/swedes.json" public/data/swedes.json
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

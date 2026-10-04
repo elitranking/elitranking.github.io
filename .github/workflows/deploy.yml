@@ -40,6 +40,15 @@ jobs:
           WTT_TTU_KEY: ${{ secrets.WTT_TTU_KEY }}
         run: npm run fetch
 
+      - name: Hämta svenskarnas matcher
+        # Utan det här skulle varje nattbygge och push tömma svenskkortet tills
+        # nästa körning av live.yml. Ett fel här får inte stoppa rankingen.
+        continue-on-error: true
+        env:
+          WTT_RANKING_KEY: ${{ secrets.WTT_RANKING_KEY }}
+          WTT_TTU_KEY: ${{ secrets.WTT_TTU_KEY }}
+        run: npm run fetch:swedes
+
       - name: Verifiera motorn mot officiella poäng
         # Stoppar publicering om vår modell och WTT:s siffror glider isär.
         run: npm test

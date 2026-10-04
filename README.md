@@ -38,6 +38,33 @@ src/engine/              ren TypeScript: veckor, regler, projektion
 src/                     React-gränssnitt, svenska och engelska
 ```
 
+### Hur ofta uppdateras sajten?
+
+- **Rankingen, poängen, anmälningslistor:** varje natt (04:15 UTC) och vid varje push
+  (`deploy.yml`). WTT publicerar ny världsranking på måndagar.
+- **Svenskarna i pågående turnering:** var tionde minut (`live.yml`), men bara om något
+  har ändrats sedan den publicerade versionen. GitHub kör schemalagda jobb på
+  best-effort-basis, så räkna med 10–20 minuter. Öppna sidor hämtar dessutom om
+  matchdatan var tredje minut utan att man behöver ladda om.
+
+GitHub stänger av schemalagda jobb i ett repo som varit helt orört i 60 dagar. En
+push, eller en manuell körning under *Actions*, slår på dem igen.
+
+### Svenskarna i turneringen
+
+`scripts/fetch-swedes.mts` hittar turneringar som pågår i kalendern, hämtar varje
+grens lottning och alla färdiga matchkort, och `scripts/swedes-model.ts` gör om det
+till en rad per svensk match. Lottningen är skelettet — den visar vem som möter vem och
+vem som går vidare — men den är en cache som ligger efter, så de officiella matchkorten
+överstyr den för färdigspelade matcher. En match som saknar tid eller motståndare visas
+som *Ej fastställd*. Tider omräknas från turneringens lokala tid till svensk tid.
+
+Datan skrivs till `public/data/swedes.json`. `live.yml` återanvänder rankingfilerna från
+den redan publicerade sajten i stället för att hämta om dem, och publicerar om bara när
+`swedes.json` skiljer sig från den publicerade versionen.
+
+Lagtävlingar (VM i lag, EM i lag) har en annan lottningsform och visas inte än.
+
 Sajten gör inga API-anrop mot WTT. Dels blockerar CORS det från en annan domän,
 dels blir en färdigbyggd datafil snabbare och mer förutsägbar än en klient som
 hämtar hundratals poängkonton vid varje sidladdning.
@@ -67,6 +94,7 @@ vägrar publicera om modellen och verkligheten glidit isär.
 ```bash
 npm install
 npm run fetch     # hämtar färsk data till public/data/
+npm run fetch:swedes   # bara svenskarnas matcher, tar några sekunder
 npm run dev
 npm test
 ```

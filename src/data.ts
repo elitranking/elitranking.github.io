@@ -5,6 +5,7 @@
  * snabbare och mer förutsägbart att servera färdig data.
  */
 import type { DataBundle, Player, SubEvent, TournamentEvent } from "./engine/types";
+import type { SwedesData } from "./swedes/types";
 
 const base = import.meta.env.BASE_URL;
 
@@ -22,4 +23,18 @@ export async function loadData(): Promise<DataBundle> {
     json<Player[]>("ranking-WS.json"),
   ]);
   return { meta, events, rankings: { MS: ms, WS: ws } as Record<SubEvent, Player[]> };
+}
+
+/**
+ * Svenskarnas matcher. Till skillnad från rankingdatan är den här frivillig:
+ * saknas filen, eller går hämtningen fel, visas helt enkelt inget kort.
+ */
+export async function loadSwedes(): Promise<SwedesData | null> {
+  try {
+    const res = await fetch(`${base}data/swedes.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as SwedesData;
+  } catch {
+    return null;
+  }
 }
