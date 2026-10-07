@@ -250,9 +250,12 @@ export interface BuildInput {
   cards: Map<string, RawMatchCard>;
   /** Turneringens UTC-avvikelse i minuter. Null = okänd. */
   offsetMin: number | null;
+  /** Matchkoder som WTT just nu listar som pågående. */
+  liveIds?: Set<string>;
 }
 
-export function buildSwedeMatches({ sub, bracket, cards, offsetMin }: BuildInput): SwedeMatch[] {
+export function buildSwedeMatches({ sub, bracket, cards, offsetMin, liveIds }: BuildInput): SwedeMatch[] {
+  const live = liveIds && new Set([...liveIds].map(normalizeCode));
   const flat: Flat[] = [];
   for (const b of bracket.Competition?.Bracket ?? []) {
     for (const ri of b.BracketItems ?? []) {
@@ -296,6 +299,7 @@ export function buildSwedeMatches({ sub, bracket, cards, offsetMin }: BuildInput
     const opp = sideForPlace(oppPlace);
     let status: SwedeMatchStatus;
     if (outcome && outcome.status !== "open") status = outcome.status;
+    else if (live?.has(id)) status = "live"; // listad som pågående, även om vi inte når ställningen
     else if (!startLocal || !opp.side) status = "tbd";
     else status = "scheduled";
 

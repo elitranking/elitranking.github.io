@@ -58,7 +58,7 @@ function Opponent({ m, t }: { m: SwedeMatch; t: Translate }) {
 
 const gameList = (m: SwedeMatch) => m.games?.map(([a, b]) => `${a}–${b}`).join(", ") ?? "";
 
-function Result({ m, t, align = "left" }: { m: SwedeMatch; t: Translate; align?: "left" | "right" }) {
+function Result({ m, t, now, align = "left" }: { m: SwedeMatch; t: Translate; now: number; align?: "left" | "right" }) {
   const score = m.sets ? `${m.sets[0]}–${m.sets[1]}` : "";
   switch (m.status) {
     case "won":
@@ -83,8 +83,14 @@ function Result({ m, t, align = "left" }: { m: SwedeMatch; t: Translate; align?:
           <div className="text-[11px] text-ink-500 tnum">{gameList(m)}</div>
         </div>
       );
-    case "scheduled":
-      return <Badge tone="neutral">{t("swedesUpcoming")}</Badge>;
+    case "scheduled": {
+      // Starttiden har passerat men inget resultat finns: matchen pågår troligen eller
+      // är nyss slut. Säg det hellre än att låta den stå kvar som "Kommande".
+      const started = m.startUtc !== null && Date.parse(m.startUtc) < now - 5 * 60_000;
+      return started
+        ? <Badge tone="warn"><span title={t("swedesAwaitingHint")}>{t("swedesAwaiting")}</span></Badge>
+        : <Badge tone="neutral">{t("swedesUpcoming")}</Badge>;
+    }
     default:
       return <Badge tone="warn"><span title={t("swedesNotSetHint")}>{t("swedesNotSet")}</span></Badge>;
   }
@@ -93,10 +99,12 @@ function Result({ m, t, align = "left" }: { m: SwedeMatch; t: Translate; align?:
 const SUB_KEY = { MS: "subMS", WS: "subWS", MD: "subMD", WD: "subWD", XD: "subXD" } as const;
 
 export function SwedesCard({
-  event, generatedAt, lang, t, action,
+  event, generatedAt, now, lang, t, action,
 }: {
   event: SwedeEvent;
   generatedAt: string;
+  /** Aktuell tid i ms, hålls av föräldern så att kortet förblir rent. */
+  now: number;
   lang: Lang;
   t: Translate;
   /** Knapp som kopplar kortet till scenariobyggaren, om turneringen finns där. */
@@ -106,6 +114,14 @@ export function SwedesCard({
   const updated = new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
   const place = [event.city, event.country].filter(Boolean).join(", ");
 
+  // Så länge matcher pågår eller snart börjar publiceras sajten om minst var 25:e minut,
+  // även utan ändring. En äldre tidsstämpel än så betyder att uppdateringen har stannat.
+  const soon = now + 3 * 3_600_000;
+  const active = event.matches.some(
+    (m) => m.status === "live" || (m.status === "scheduled" && m.startUtc !== null && Date.parse(m.startUtc) < soon),
+  );
+  const stale = active && now - Date.parse(generatedAt) > 45 * 60_000;
+
   return (
     <Card className="mb-4 overflow-hidden">
       <CardHeader
@@ -113,6 +129,12 @@ export function SwedesCard({
         subtitle={`${place} · ${t("swedesTimeNote")} ${t("updated")} ${updated}`}
         action={action && <div className="hidden sm:block">{action}</div>}
       />
+
+      {stale && (
+        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          {t("swedesStale")} {updated}.
+        </p>
+      )}
 
       {/* Smal skärm: en kompakt rad per match istället för en sex kolumner bred tabell. */}
       <ul className="divide-y divide-ink-100 dark:divide-ink-800 md:hidden">
@@ -124,7 +146,7 @@ export function SwedesCard({
                 <span className="text-xs text-ink-500 tnum">
                   {when ? `${when.date} · ${when.time}` : t("swedesNotSet")}
                 </span>
-                <Result m={m} t={t} align="right" />
+                <Result m={m} t={t} now={now} align="right" />
               </div>
               <div className="mt-1 text-sm"><Side side={m.swedes} hideSwe /></div>
               <div className="text-sm text-ink-700 dark:text-ink-200">
@@ -176,7 +198,7 @@ export function SwedesCard({
                     {t(SUB_KEY[m.sub])}
                     <div>{matchRoundLabel(m.round, t)}</div>
                   </td>
-                  <td className="px-3 py-2"><Result m={m} t={t} /></td>
+                  <td className="px-3 py-2"><Result m={m} t={t} now={now} /></td>
                 </tr>
               );
             })}

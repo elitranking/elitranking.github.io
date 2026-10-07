@@ -9,7 +9,7 @@
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fetchBracket, fetchCalendar, fetchMatchCards, pool, type RawCalendarRow } from "./wtt-api.ts";
+import { fetchBracket, fetchCalendar, fetchLiveMatchCodes, fetchMatchCards, pool, type RawCalendarRow } from "./wtt-api.ts";
 import {
   buildSwedeMatches,
   compareMatches,
@@ -32,6 +32,13 @@ const SUB_EVENTS: Array<[SwedeSubEvent, string]> = [
 const DAY = 86_400_000;
 /** Matcher som borde ha börjat men saknar resultat kollas upp en och en. */
 const LIVE_WINDOW_MS = 6 * 3_600_000;
+
+// Sista skyddsnätet: hänger något sig trots alla tidsgränser avslutar vi hellre med
+// ett fel (och låter nästa körning försöka) än blockerar kön.
+setTimeout(() => {
+  console.error("Tog för lång tid — avbryter.");
+  process.exit(1);
+}, 150_000).unref();
 
 const outArg = process.argv.indexOf("--out");
 const OUT = resolve(outArg > 0 ? process.argv[outArg + 1] : "public/data/swedes.json");
@@ -59,9 +66,10 @@ async function eventWithSwedes(row: RawCalendarRow, now: number): Promise<SwedeE
     cards.set(normalizeCode(c.documentCode), c);
   }
   const offsetMin = deriveOffsetMinutes(cards.values());
+  const liveIds = await fetchLiveMatchCodes(row.EventId);
 
   const build = () =>
-    present.flatMap(({ sub, bracket }) => buildSwedeMatches({ sub, bracket: bracket!, cards, offsetMin }));
+    present.flatMap(({ sub, bracket }) => buildSwedeMatches({ sub, bracket: bracket!, cards, offsetMin, liveIds }));
   const buildAll = () => build().sort(compareMatches);
   let matches = buildAll();
 

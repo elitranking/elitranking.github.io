@@ -17,6 +17,7 @@ export interface WttConfig {
   cmsApi: string;       // apiLocalEndpoint
   liveApi: string;      // scoreApiLocalEndpoint
   staticApi: string;    // liveMatchApiDomain_frontdoor
+  liveStaticApi: string; // liveMatchApiDomain (utan cache — pågående matcher)
   rankingKey: string;   // ittfapikey
   ttuKey: string;       // ttu_apikey
 }
@@ -41,6 +42,7 @@ const FALLBACK: WttConfig = {
   liveApi:
     "https://wtt-website-api-vm-frontdoor-hhaec5epbhdyfugz.a01.azurefd.net/liveeventsapi/api/",
   staticApi: "https://wtt-web-frontdoor-cthahjeqhbh6aqe3.a01.azurefd.net/",
+  liveStaticApi: "https://wtt-web-frontdoor-withoutcache-cqakg0andqf5hchn.a01.azurefd.net/",
   rankingKey: "",
   ttuKey: "",
 };
@@ -90,12 +92,12 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
 }
 
 async function scrapeConfigFromBundle(): Promise<Partial<WttConfig>> {
-  const html = await (await fetch(SITE, { headers: BROWSER_HEADERS })).text();
+  const html = await (await fetch(SITE, { headers: BROWSER_HEADERS, signal: timeoutSignal() })).text();
   const bundle = html.match(/src="(main\.[a-f0-9]+\.js)"/)?.[1];
   if (!bundle) throw new Error("hittade ingen main-bundle i HTML:en");
 
   const js = await (
-    await fetch(`${SITE}/${bundle}`, { headers: BROWSER_HEADERS })
+    await fetch(`${SITE}/${bundle}`, { headers: BROWSER_HEADERS, signal: timeoutSignal() })
   ).text();
 
   const pick = (key: string) =>
@@ -107,6 +109,7 @@ async function scrapeConfigFromBundle(): Promise<Partial<WttConfig>> {
     cmsApi: pick("apiLocalEndpoint"),
     liveApi: pick("scoreApiLocalEndpoint"),
     staticApi: pick("liveMatchApiDomain_frontdoor"),
+    liveStaticApi: pick("liveMatchApiDomain"),
     rankingKey: pick("ittfapikey"),
     ttuKey: pick("ttu_apikey"),
   });
@@ -118,6 +121,14 @@ async function scrapeConfigFromBundle(): Promise<Partial<WttConfig>> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Ett anrop som hänger sig får aldrig stoppa hela jobbet. Utan gräns väntar Node i
+ * flera minuter på ett svar som aldrig kommer, och en körning som aldrig tar slut
+ * blockerar nästa. 25 sekunder är gott och väl för WTT:s snabbaste och långsammaste.
+ */
+const REQUEST_TIMEOUT_MS = 25_000;
+const timeoutSignal = () => AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
 async function getJson<T>(
   url: string,
   extraHeaders: Record<string, string> = {},
@@ -125,6 +136,7 @@ async function getJson<T>(
 ): Promise<T> {
   const res = await fetch(url, {
     headers: { ...BROWSER_HEADERS, ...extraHeaders },
+    signal: timeoutSignal(),
   });
 
   if (!res.ok) {
@@ -321,7 +333,7 @@ async function getJsonOptional<T>(url: string): Promise<T | null> {
   let lastError = "";
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      const res = await fetch(url, { headers: BROWSER_HEADERS });
+      const res = await fetch(url, { headers: BROWSER_HEADERS, signal: timeoutSignal() });
       if (res.status === 204 || res.status === 404) return null;
       if (res.ok) {
         const text = await res.text();
@@ -362,4 +374,26 @@ export async function fetchMatchCards(eventId: number, documentCode?: string): P
     `${cfg.liveApi}cms/GetOfficialResult?${params}`,
   );
   return (rows ?? []).map((r) => r.match_card).filter(Boolean);
+}
+
+/**
+ * Koder för matcher som pågår just nu i turneringen. WTT:s egen sajt läser först en
+ * statisk fil och faller tillbaka på API:et; vi gör likadant. Objekten kommer antingen
+ * i kortform `{e, d, s}` eller utvecklade `{eventId, documentCode, subEventType}`.
+ */
+export async function fetchLiveMatchCodes(eventId: number): Promise<Set<string>> {
+  const cfg = await resolveConfig();
+  const sources = [
+    `${cfg.liveStaticApi}websitestaticapifiles/running-events/${eventId}/${eventId}_livematchids.json?q=${Date.now()}`,
+    `${cfg.liveApi}cms/GetLiveResult?EventId=${eventId}`,
+  ];
+  for (const url of sources) {
+    try {
+      const rows = await getJsonOptional<Array<{ d?: string; documentCode?: string }>>(url);
+      if (Array.isArray(rows) && rows.length) {
+        return new Set(rows.map((r) => r.d ?? r.documentCode).filter((c): c is string => !!c));
+      }
+    } catch { /* prova nästa källa — "ingen live" är normalläget, fel ska inte stoppa jobbet */ }
+  }
+  return new Set();
 }

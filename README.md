@@ -42,10 +42,35 @@ src/                     React-gränssnitt, svenska och engelska
 
 - **Rankingen, poängen, anmälningslistor:** varje natt (04:15 UTC) och vid varje push
   (`deploy.yml`). WTT publicerar ny världsranking på måndagar.
-- **Svenskarna i pågående turnering:** var tionde minut (`live.yml`), men bara om något
-  har ändrats sedan den publicerade versionen. GitHub kör schemalagda jobb på
-  best-effort-basis, så räkna med 10–20 minuter. Öppna sidor hämtar dessutom om
-  matchdatan var tredje minut utan att man behöver ladda om.
+- **Svenskarna i pågående turnering:** `live.yml` körs var femte minut via GitHub-schemat
+  och publicerar bara om något har ändrats. Medan matcher pågår eller snart börjar
+  publiceras den också om var 25:e minut utan ändring, som hjärtslag. Öppna sidor hämtar
+  dessutom om matchdatan varje minut utan att man behöver ladda om, och visar en gul
+  varning om den publicerade datan är äldre än 45 minuter.
+
+#### Extern cron (rekommenderas)
+
+GitHubs schema är best-effort: körningar hoppas över eller dröjer, och ett nyinlagt schema
+kan dröja länge innan det körs första gången. För jämn takt, låt en extern cron-tjänst (t.ex.
+cron-job.org) starta arbetsflödet direkt, var annan eller var tredje minut:
+
+```
+POST https://api.github.com/repos/elitranking/elitranking.github.io/actions/workflows/live.yml/dispatches
+Accept: application/vnd.github+json
+Authorization: Bearer <token>
+X-GitHub-Api-Version: 2022-11-28
+Content-Type: application/json
+
+{"ref": "main"}
+```
+
+Lyckat svar är HTTP 204. Tokenen behöver behörigheten `workflow` (classic: `repo` + `workflow`).
+Peka bara på **live.yml** — `deploy.yml` hämtar hundratals poängkonton och ska köras en gång
+per natt, inte med några minuters mellanrum. Schemat och den externa cronen kan ligga
+på samtidigt: körningarna är idempotenta, och en ny körning ersätter en som hänger sig.
+
+Båda arbetsflödena har tidsgränser, och varje anrop mot WTT avbryts efter 25 sekunder.
+Utan dem kan ett hängt jobb stå kvar i timmar och blockera publiceringskön.
 
 GitHub stänger av schemalagda jobb i ett repo som varit helt orört i 60 dagar. En
 push, eller en manuell körning under *Actions*, slår på dem igen.

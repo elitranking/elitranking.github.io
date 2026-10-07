@@ -16,7 +16,7 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [data, setData] = useState<DataBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const swedes = useSwedes();
+  const { swedes, now: clock } = useSwedes();
   const t = makeTranslate(state.lang);
 
   // Läs scenariot ur länken en gång vid start
@@ -44,23 +44,27 @@ export default function App() {
   if (error) return <Fallback message={t("loadError")} detail={error} action={t("retry")} />;
   if (!data) return <Fallback message={t("loading")} />;
 
-  return <Workspace data={data} swedes={swedes} state={state} dispatch={dispatch} t={t} />;
+  return <Workspace data={data} swedes={swedes} clock={clock} state={state} dispatch={dispatch} t={t} />;
 }
 
 /**
  * Svenskarnas matcher, med omhämtning så att en öppen flik följer turneringen.
  * Hoppar över omhämtning medan fliken är dold.
  */
-function useSwedes(): SwedesData | null {
+function useSwedes(): { swedes: SwedesData | null; now: number } {
   const [swedes, setSwedes] = useState<SwedesData | null>(null);
+  // "Nu" hålls i state och tickar med omhämtningen, så att rader som passerat sin
+  // starttid byter etikett utan att renderingen själv behöver läsa klockan.
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
       if (document.hidden) return;
+      setNow(Date.now());
       loadSwedes().then((d) => !cancelled && d && setSwedes(d));
     };
     refresh();
-    const timer = setInterval(refresh, 3 * 60_000);
+    const timer = setInterval(refresh, 60_000);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       cancelled = true;
@@ -68,14 +72,15 @@ function useSwedes(): SwedesData | null {
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
-  return swedes;
+  return { swedes, now };
 }
 
 function Workspace({
-  data, swedes, state, dispatch, t,
+  data, swedes, clock, state, dispatch, t,
 }: {
   data: DataBundle;
   swedes: SwedesData | null;
+  clock: number;
   state: ReturnType<typeof reducer>;
   dispatch: React.Dispatch<Parameters<typeof reducer>[1]>;
   t: ReturnType<typeof makeTranslate>;
@@ -149,6 +154,7 @@ function Workspace({
             key={ev.id}
             event={ev}
             generatedAt={swedes.generatedAt}
+            now={clock}
             lang={state.lang}
             t={t}
             action={

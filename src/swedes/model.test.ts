@@ -135,6 +135,15 @@ describe("svenskarnas matcher", () => {
     expect(buildSwedeMatches({ sub: "MS", bracket: bracket(), cards: lost, offsetMin: 480 })).toHaveLength(2);
   });
 
+  it("markerar en match som pågår när WTT listar den som live, även utan ställning", () => {
+    const m = buildSwedeMatches({
+      sub: "MS", bracket: bracket(), cards: new Map(), offsetMin: 480,
+      liveIds: new Set([U_R64_B + "--------"]), // kortets utfyllnad skiljer sig från lottningens
+    }).find((x) => x.id === normalizeCode(U_R64_B))!;
+    expect(m.status).toBe("live");
+    expect(m.sets).toBeNull();
+  });
+
   it("markerar en match som pågår när kortet inte är officiellt", () => {
     const live = new Map([[normalizeCode(U_R64_A), card({ resultStatus: "INTERMEDIATE", overallScores: "1-1", gameScores: "4-11,11-8,0-0,0-0,0-0" })]]);
     const m = buildSwedeMatches({ sub: "MS", bracket: bracket(), cards: live, offsetMin: 480 })
