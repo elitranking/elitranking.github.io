@@ -144,6 +144,26 @@ describe("svenskarnas matcher", () => {
     expect(m.sets).toBeNull();
   });
 
+  it("visar ställningen i en pågående match med ett game på gång, svensk sida först", () => {
+    // Svensken är bortalag i U_R64_A, så kortets hemma–borta-ordning vänds. Tredje gamet står 5–3 till hemmalaget.
+    const live = new Map([[normalizeCode(U_R64_A), card({ resultStatus: "", overallScores: "1-1", gameScores: "11-7,8-11,5-3" })]]);
+    const m = buildSwedeMatches({
+      sub: "MS", bracket: bracket(), cards: live, offsetMin: 480, liveIds: new Set([U_R64_A]),
+    }).find((x) => x.id === normalizeCode(U_R64_A))!;
+    expect(m.status).toBe("live");
+    expect(m.sets).toEqual([1, 1]);
+    expect(m.games).toEqual([[7, 11], [11, 8], [3, 5]]);
+  });
+
+  it("visar 0–0 när en listad live-match har kort men ingen poäng än", () => {
+    const fresh = new Map([[normalizeCode(U_R64_A), card({ resultStatus: "", overallScores: "0-0", gameScores: "0-0,0-0,0-0,0-0,0-0" })]]);
+    const m = buildSwedeMatches({
+      sub: "MS", bracket: bracket(), cards: fresh, offsetMin: 480, liveIds: new Set([U_R64_A]),
+    }).find((x) => x.id === normalizeCode(U_R64_A))!;
+    expect(m.status).toBe("live");
+    expect(m.sets).toEqual([0, 0]);
+  });
+
   it("markerar en match som pågår när kortet inte är officiellt", () => {
     const live = new Map([[normalizeCode(U_R64_A), card({ resultStatus: "INTERMEDIATE", overallScores: "1-1", gameScores: "4-11,11-8,0-0,0-0,0-0" })]]);
     const m = buildSwedeMatches({ sub: "MS", bracket: bracket(), cards: live, offsetMin: 480 })

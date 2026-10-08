@@ -16,7 +16,7 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [data, setData] = useState<DataBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { swedes, now: clock } = useSwedes();
+  const { swedes, now: clock, checkedAt } = useSwedes();
   const t = makeTranslate(state.lang);
 
   // Läs scenariot ur länken en gång vid start
@@ -44,43 +44,66 @@ export default function App() {
   if (error) return <Fallback message={t("loadError")} detail={error} action={t("retry")} />;
   if (!data) return <Fallback message={t("loading")} />;
 
-  return <Workspace data={data} swedes={swedes} clock={clock} state={state} dispatch={dispatch} t={t} />;
+  return <Workspace data={data} swedes={swedes} clock={clock} checkedAt={checkedAt} state={state} dispatch={dispatch} t={t} />;
 }
 
 /**
  * Svenskarnas matcher, med omhämtning så att en öppen flik följer turneringen.
- * Hoppar över omhämtning medan fliken är dold.
+ *
+ * Webbläsare strypar eller pausar timers i flikar och fönster som inte syns (särskilt
+ * Safari), så ett intervall ensamt räcker inte. Därför hämtar vi också om så fort
+ * fliken blir synlig eller får fokus igen, och kollar klockan mot senaste hämtningen.
  */
-function useSwedes(): { swedes: SwedesData | null; now: number } {
+const SWEDES_POLL_MS = 30_000;
+
+function useSwedes(): { swedes: SwedesData | null; now: number; checkedAt: number | null } {
   const [swedes, setSwedes] = useState<SwedesData | null>(null);
   // "Nu" hålls i state och tickar med omhämtningen, så att rader som passerat sin
   // starttid byter etikett utan att renderingen själv behöver läsa klockan.
   const [now, setNow] = useState(() => Date.now());
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const refresh = () => {
+    let lastStarted = 0;
+    const refresh = (force = false) => {
       if (document.hidden) return;
-      setNow(Date.now());
-      loadSwedes().then((d) => !cancelled && d && setSwedes(d));
+      const t = Date.now();
+      setNow(t);
+      // Flera händelser kan utlösas på en gång (fokus + synlighet); hämta inte dubbelt.
+      if (!force && t - lastStarted < 10_000) return;
+      lastStarted = t;
+      loadSwedes().then((d) => {
+        if (cancelled || !d) return;
+        setSwedes(d);
+        setCheckedAt(Date.now());
+      });
     };
-    refresh();
-    const timer = setInterval(refresh, 60_000);
-    document.addEventListener("visibilitychange", refresh);
+    const onWake = () => refresh();
+    refresh(true);
+    const timer = setInterval(onWake, SWEDES_POLL_MS);
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    window.addEventListener("pageshow", onWake);
+    window.addEventListener("online", onWake);
     return () => {
       cancelled = true;
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("pageshow", onWake);
+      window.removeEventListener("online", onWake);
     };
   }, []);
-  return { swedes, now };
+  return { swedes, now, checkedAt };
 }
 
 function Workspace({
-  data, swedes, clock, state, dispatch, t,
+  data, swedes, clock, checkedAt, state, dispatch, t,
 }: {
   data: DataBundle;
   swedes: SwedesData | null;
   clock: number;
+  checkedAt: number | null;
   state: ReturnType<typeof reducer>;
   dispatch: React.Dispatch<Parameters<typeof reducer>[1]>;
   t: ReturnType<typeof makeTranslate>;
@@ -155,6 +178,7 @@ function Workspace({
             event={ev}
             generatedAt={swedes.generatedAt}
             now={clock}
+            checkedAt={checkedAt}
             lang={state.lang}
             t={t}
             action={

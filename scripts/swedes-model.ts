@@ -299,7 +299,7 @@ export function buildSwedeMatches({ sub, bracket, cards, offsetMin, liveIds }: B
     const opp = sideForPlace(oppPlace);
     let status: SwedeMatchStatus;
     if (outcome && outcome.status !== "open") status = outcome.status;
-    else if (live?.has(id)) status = "live"; // listad som pågående, även om vi inte når ställningen
+    else if (live?.has(id)) status = "live"; // listad som pågående, även om ställningen saknas
     else if (!startLocal || !opp.side) status = "tbd";
     else status = "scheduled";
 
@@ -315,7 +315,8 @@ export function buildSwedeMatches({ sub, bracket, cards, offsetMin, liveIds }: B
       startUtc: startUtc ? startUtc.replace(/\.\d{3}Z$/, "Z") : null,
       startLocal,
       table: card?.tableName ?? null,
-      sets: outcome?.sets ?? null,
+      // En match som just startat har ett kort men ingen poäng än: visa 0–0 hellre än inget.
+      sets: outcome?.sets ?? (status === "live" && card ? ([0, 0] as [number, number]) : null),
       games: outcome?.games?.length ? outcome.games : null,
     };
   };

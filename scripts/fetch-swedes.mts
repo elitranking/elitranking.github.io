@@ -9,7 +9,7 @@
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fetchBracket, fetchCalendar, fetchLiveMatchCodes, fetchMatchCards, pool, type RawCalendarRow } from "./wtt-api.ts";
+import { fetchBracket, fetchCalendar, fetchLiveMatchCard, fetchLiveMatchCodes, fetchMatchCards, pool, type RawCalendarRow } from "./wtt-api.ts";
 import {
   buildSwedeMatches,
   compareMatches,
@@ -73,15 +73,23 @@ async function eventWithSwedes(row: RawCalendarRow, now: number): Promise<SwedeE
   const buildAll = () => build().sort(compareMatches);
   let matches = buildAll();
 
-  // Pågående matcher finns inte bland de officiella korten än. Fråga efter dem
-  // enskilt — samma väg som WTT:s egen sajt tar för sin live-vy.
+  // Pågående matcher finns inte bland de officiella korten än. Hämta deras kort
+  // ett och ett från live-filerna — samma väg som WTT:s egen sajt tar. Det gäller
+  // både matcher som WTT listar som pågående och sådana som borde ha börjat.
+  const liveSet = new Set([...liveIds].map(normalizeCode));
   const maybeLive = matches.filter((m) => {
     if (m.status === "won" || m.status === "lost") return false;
+    if (liveSet.has(m.id)) return true;
     const start = m.startUtc ? Date.parse(m.startUtc) : NaN;
     return Number.isFinite(start) && start <= now && now - start <= LIVE_WINDOW_MS;
   });
   if (maybeLive.length) {
-    const live = await pool(maybeLive, 4, (m) => fetchMatchCards(row.EventId, paddedCode(m.id)).catch(() => []));
+    const live = await pool(maybeLive, 4, async (m) => {
+      const code = paddedCode(m.id);
+      const card = await fetchLiveMatchCard(row.EventId, code);
+      if (card) return [card];
+      return fetchMatchCards(row.EventId, code).catch(() => []); // reserv: matchen kan just ha avgjorts
+    });
     for (const card of live.flat() as RawMatchCard[]) cards.set(normalizeCode(card.documentCode), card);
     matches = buildAll();
   }

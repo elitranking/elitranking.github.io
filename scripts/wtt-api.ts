@@ -377,6 +377,28 @@ export async function fetchMatchCards(eventId: number, documentCode?: string): P
 }
 
 /**
+ * Ett enskilt matchkort för en match som pågår. WTT:s egen sajt läser en statisk fil
+ * per match (uppdateras för varje poäng) och faller tillbaka på API:et — vi gör
+ * likadant. Pågående matcher finns inte i GetOfficialResult förrän de är avgjorda.
+ * Kortet har samma form som de officiella korten.
+ */
+export async function fetchLiveMatchCard(eventId: number, documentCode: string): Promise<unknown | null> {
+  const cfg = await resolveConfig();
+  const bucket = Math.floor(Date.now() / 5000) * 5000;
+  const sources = [
+    `${cfg.liveStaticApi}matchdata/${eventId}/${documentCode}.json?q=${bucket}`,
+    `${cfg.liveApi}cms/GetMatchCardDetails/${eventId}/${documentCode}`,
+  ];
+  for (const url of sources) {
+    try {
+      const card = await getJsonOptional<{ documentCode?: string; competitiors?: unknown[] }>(url);
+      if (card && Array.isArray(card.competitiors) && card.competitiors.length) return card;
+    } catch { /* prova nästa källa */ }
+  }
+  return null;
+}
+
+/**
  * Koder för matcher som pågår just nu i turneringen. WTT:s egen sajt läser först en
  * statisk fil och faller tillbaka på API:et; vi gör likadant. Objekten kommer antingen
  * i kortform `{e, d, s}` eller utvecklade `{eventId, documentCode, subEventType}`.

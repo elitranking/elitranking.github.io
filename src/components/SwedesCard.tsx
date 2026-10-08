@@ -58,6 +58,20 @@ function Opponent({ m, t }: { m: SwedeMatch; t: Translate }) {
 
 const gameList = (m: SwedeMatch) => m.games?.map(([a, b]) => `${a}–${b}`).join(", ") ?? "";
 
+/** Ett game är färdigspelat vid minst 11 poäng och två i marginal. */
+const isFinishedGame = ([a, b]: [number, number]) => Math.max(a, b) >= 11 && Math.abs(a - b) >= 2;
+
+/** Pågående match: färdiga game, och gamet som spelas just nu för sig. */
+function liveGames(m: SwedeMatch, nowLabel: string): string {
+  const games = m.games ?? [];
+  const last = games[games.length - 1];
+  const running = last && !isFinishedGame(last) ? last : null;
+  const done = running ? games.slice(0, -1) : games;
+  const parts = [done.map(([a, b]) => `${a}–${b}`).join(", ")];
+  if (running) parts.push(`${nowLabel} ${running[0]}–${running[1]}`);
+  return parts.filter(Boolean).join(" · ");
+}
+
 function Result({ m, t, now, align = "left" }: { m: SwedeMatch; t: Translate; now: number; align?: "left" | "right" }) {
   const score = m.sets ? `${m.sets[0]}–${m.sets[1]}` : "";
   switch (m.status) {
@@ -80,7 +94,7 @@ function Result({ m, t, now, align = "left" }: { m: SwedeMatch; t: Translate; no
             <span className="h-2 w-2 animate-pulse rounded-full bg-felt-500" aria-hidden />
             {t("swedesLive")} {score}
           </span>
-          <div className="text-[11px] text-ink-500 tnum">{gameList(m)}</div>
+          <div className="text-[11px] text-ink-500 tnum">{liveGames(m, t("swedesNowGame"))}</div>
         </div>
       );
     case "scheduled": {
@@ -99,12 +113,14 @@ function Result({ m, t, now, align = "left" }: { m: SwedeMatch; t: Translate; no
 const SUB_KEY = { MS: "subMS", WS: "subWS", MD: "subMD", WD: "subWD", XD: "subXD" } as const;
 
 export function SwedesCard({
-  event, generatedAt, now, lang, t, action,
+  event, generatedAt, now, checkedAt, lang, t, action,
 }: {
   event: SwedeEvent;
   generatedAt: string;
   /** Aktuell tid i ms, hålls av föräldern så att kortet förblir rent. */
   now: number;
+  /** När webbläsaren senast hämtade datan. Visar att sidan följer med av sig själv. */
+  checkedAt?: number | null;
   lang: Lang;
   t: Translate;
   /** Knapp som kopplar kortet till scenariobyggaren, om turneringen finns där. */
@@ -112,6 +128,9 @@ export function SwedesCard({
 }) {
   const locale = lang === "sv" ? "sv-SE" : "en-GB";
   const updated = new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
+  const checked = checkedAt
+    ? new Date(checkedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: TZ })
+    : null;
   const place = [event.city, event.country].filter(Boolean).join(", ");
 
   // Så länge matcher pågår eller snart börjar publiceras sajten om minst var 25:e minut,
@@ -126,7 +145,7 @@ export function SwedesCard({
     <Card className="mb-4 overflow-hidden">
       <CardHeader
         title={`${t("swedesTitle")} ${shortEventName(event.name)}`}
-        subtitle={`${place} · ${t("swedesTimeNote")} ${t("updated")} ${updated}`}
+        subtitle={`${place} · ${t("swedesTimeNote")} ${t("updated")} ${updated}${checked ? ` · ${t("swedesChecked")} ${checked}` : ""}`}
         action={action && <div className="hidden sm:block">{action}</div>}
       />
 
