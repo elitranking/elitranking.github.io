@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildSwedeMatches, deriveOffsetMinutes, normalizeCode, prettyName,
+  allFinalsDecided, buildSwedeMatches, deriveOffsetMinutes, normalizeCode, prettyName,
   type RawBracket, type RawMatchCard, type RawPlace,
 } from "../../scripts/swedes-model";
 
@@ -170,5 +170,36 @@ describe("svenskarnas matcher", () => {
       .find((x) => x.id === normalizeCode(U_R64_A))!;
     expect(m.status).toBe("live");
     expect(m.sets).toEqual([1, 1]);
+  });
+});
+
+describe("turneringen är slut", () => {
+  const U_FINAL = "TTEMSINGLES-----------FNL-000100--";
+  const withFinal = (wlt: string): RawBracket => ({
+    Competition: { Bracket: [{ Code: "MAIN", BracketItems: [
+      { Code: "FNL-", BracketItem: [{ Unit: U_FINAL, Date: "2026-10-11", Time: "20:00", Result: "",
+        CompetitorPlace: [place(1, XUE, { Wlt: wlt }), place(2, OH)] }] },
+    ] }] },
+  });
+  const finalCard = (status: string, overall: string): Map<string, RawMatchCard> =>
+    new Map([[normalizeCode(U_FINAL), card({ documentCode: U_FINAL, resultStatus: status, overallScores: overall })]]);
+
+  it("är slut när finalen har en vinnare i lottningen", () => {
+    expect(allFinalsDecided([withFinal("W")], new Map())).toBe(true);
+  });
+
+  it("är slut när finalens matchkort är officiellt, även om lottningen släpar", () => {
+    expect(allFinalsDecided([withFinal("")], finalCard("OFFICIAL", "4-2"))).toBe(true);
+  });
+
+  it("är inte slut medan finalen spelas eller väntar", () => {
+    expect(allFinalsDecided([withFinal("")], new Map())).toBe(false);
+    expect(allFinalsDecided([withFinal("")], finalCard("", "2-1"))).toBe(false);
+  });
+
+  it("är inte slut om en av lottningarna saknar avgjord final, eller om inga lottningar finns", () => {
+    expect(allFinalsDecided([withFinal("W"), withFinal("")], new Map())).toBe(false);
+    expect(allFinalsDecided([bracket()], new Map())).toBe(false); // ingen final ännu
+    expect(allFinalsDecided([], new Map())).toBe(false);
   });
 });

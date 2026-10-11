@@ -222,6 +222,7 @@ export interface RawCalendarRow {
   FromStartDate: string | null;
   FromEndDate: string | null;
   ShowInCalendar: unknown;
+  ContinentCode?: string | null;
 }
 
 export interface RawEntryRow {

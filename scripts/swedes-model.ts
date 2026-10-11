@@ -243,6 +243,34 @@ function outcomeFromBracket(item: RawBracketItem, swedePlace: RawPlace, oppPlace
   return null;
 }
 
+/**
+ * Är turneringen slut? Sant när varje lottning som finns har en avgjord final.
+ * Falskt när en lottning saknar final (då vet vi inte), så att en halvfärdig lottning
+ * aldrig får en pågående turnering att försvinna.
+ */
+export function allFinalsDecided(brackets: RawBracket[], cards: Map<string, RawMatchCard>): boolean {
+  if (!brackets.length) return false;
+  return brackets.every((bracket) => {
+    const finals: RawBracketItem[] = [];
+    for (const b of bracket.Competition?.Bracket ?? []) {
+      if (b.Code === "PREL") continue;
+      for (const ri of b.BracketItems ?? []) {
+        if (roundCode(b.Code, ri.Code) === "F") finals.push(...(ri.BracketItem ?? []));
+      }
+    }
+    if (!finals.length) return false;
+    return finals.every((item) => {
+      if (item.CompetitorPlace.some((p) => p.Wlt === "W")) return true;
+      const card = cards.get(normalizeCode(item.Unit));
+      const overall = card?.overallScores?.split("-").map(Number) ?? [];
+      return (
+        (card?.resultStatus ?? "").toUpperCase() === "OFFICIAL" &&
+        overall.length === 2 && overall.every(Number.isFinite) && overall[0] !== overall[1]
+      );
+    });
+  });
+}
+
 export interface BuildInput {
   sub: SwedeSubEvent;
   bracket: RawBracket;

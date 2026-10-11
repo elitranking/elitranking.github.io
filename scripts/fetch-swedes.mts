@@ -11,6 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fetchBracket, fetchCalendar, fetchLiveMatchCard, fetchLiveMatchCodes, fetchMatchCards, pool, type RawCalendarRow } from "./wtt-api.ts";
 import {
+  allFinalsDecided,
   buildSwedeMatches,
   compareMatches,
   deriveOffsetMinutes,
@@ -50,8 +51,31 @@ function activeEvents(rows: RawCalendarRow[], now: number): RawCalendarRow[] {
     const end = Date.parse(r.EndDateTime ?? r.FromEndDate ?? "");
     if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
     if (/youth|veteran|multi-sport|qualification/i.test(r.EventType)) return false;
-    return now >= start - DAY && now <= end + 2 * DAY;
+    // Slutdatum är dagens början; en dags marginal täcker tidszoner. Att alla finaler
+    // är spelade avgör sedan om turneringen försvinner tidigare (se eventWithSwedes).
+    return now >= start - DAY && now <= end + DAY;
   });
+}
+
+/**
+ * Mästerskap som WTT:s system bara känner till som kalenderpost (EM körs av ETTU med
+ * ett eget resultatsystem). Vi har ingen matchdata, men kortet kan åtminstone säga det
+ * och peka dit där matcherna går att följa.
+ */
+function externalOnlyEvent(row: RawCalendarRow): SwedeEvent | null {
+  const europeChampionship =
+    /continental championships/i.test(row.EventType) && (row.ContinentCode ?? "").toLowerCase() === "europe";
+  if (!europeChampionship) return null;
+  return {
+    id: row.EventId,
+    name: row.EventName,
+    city: row.City,
+    country: row.Country,
+    start: (row.StartDateTime ?? row.FromStartDate ?? "").slice(0, 10),
+    end: (row.EndDateTime ?? row.FromEndDate ?? "").slice(0, 10),
+    matches: [],
+    externalUrl: "https://www.ettu.tv/",
+  };
 }
 
 async function eventWithSwedes(row: RawCalendarRow, now: number): Promise<SwedeEvent | null> {
@@ -59,12 +83,18 @@ async function eventWithSwedes(row: RawCalendarRow, now: number): Promise<SwedeE
     SUB_EVENTS.map(async ([sub, code]) => ({ sub, bracket: (await fetchBracket(row.EventId, code)) as RawBracket | null })),
   );
   const present = brackets.filter((b) => b.bracket?.Competition?.Bracket?.length);
-  if (!present.length) return null;
+  if (!present.length) return externalOnlyEvent(row);
 
   const cards = new Map<string, RawMatchCard>();
   for (const c of (await fetchMatchCards(row.EventId)) as RawMatchCard[]) {
     cards.set(normalizeCode(c.documentCode), c);
   }
+  // Alla finaler spelade = turneringen är över. Då ska kortet inte ligga kvar.
+  if (allFinalsDecided(present.map((b) => b.bracket!), cards)) {
+    console.log(`  ${row.EventName}: alla finaler är avgjorda — visas inte längre`);
+    return null;
+  }
+
   const offsetMin = deriveOffsetMinutes(cards.values());
   const liveIds = await fetchLiveMatchCodes(row.EventId);
 

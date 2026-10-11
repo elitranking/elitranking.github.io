@@ -141,6 +141,21 @@ export function SwedesCard({
   );
   const stale = active && now - Date.parse(generatedAt) > 45 * 60_000;
 
+  // Turneringar som WTT:s system inte har matchdata för: säg det och peka vidare.
+  if (event.externalUrl && !event.matches.length) {
+    return (
+      <Card className="mb-4 overflow-hidden">
+        <CardHeader title={`${t("swedesTitle")} ${shortEventName(event.name)}`} subtitle={`${place} · ${event.start} – ${event.end}`} />
+        <p className="px-4 py-3 text-sm text-ink-700 dark:text-ink-200">
+          {t("swedesExternalNote")}{" "}
+          <a href={event.externalUrl} target="_blank" rel="noreferrer" className="font-medium text-felt-700 underline dark:text-felt-100">
+            {t("swedesExternalLink")}
+          </a>
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mb-4 overflow-hidden">
       <CardHeader

@@ -56,6 +56,11 @@ export interface SwedeEvent {
   start: string;
   end: string;
   matches: SwedeMatch[];
+  /**
+   * Satt när WTT:s system saknar matchdata för turneringen (t.ex. ETTU:s EM, som körs
+   * av ett annat resultatsystem). Kortet visar då en hänvisning i stället för matcher.
+   */
+  externalUrl?: string;
 }
 
 export interface SwedesData {
